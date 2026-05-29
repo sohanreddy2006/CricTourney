@@ -140,6 +140,21 @@ async def get_active_tournament(guild_id: int) -> Record | None:
         )
 
 
+async def get_registration_tournament(guild_id: int) -> Record | None:
+    async with acquire() as connection:
+        return await connection.fetchrow(
+            """
+            SELECT *
+            FROM tournaments
+            WHERE guild_id = $1
+              AND status = 'registration'
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            guild_id,
+        )
+
+
 async def update_tournament_status(tournament_id: int, status: str) -> Record | None:
     ended_clause = ", ended_at = NOW()" if status in {"completed", "cancelled"} else ""
     async with acquire() as connection:
