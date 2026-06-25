@@ -105,7 +105,11 @@ class RegistrationCog(commands.Cog):
             return
 
         if ovr < tournament["ovr_min"]:
-            await ctx.send(embed=error_embed(f"Your OVR must be at least {tournament['ovr_min']} to register."))
+            await ctx.send(
+                embed=error_embed(
+                    f"Your OVR ({ovr}) is below the minimum required ({tournament['ovr_min']}) for this tournament."
+                )
+            )
             return
 
         existing = await queries.get_participant_by_discord_id(tournament["id"], ctx.author.id)

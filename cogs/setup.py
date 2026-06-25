@@ -122,7 +122,7 @@ class ConfirmTournamentView(OwnedView):
 
         active = await queries.get_active_tournament(interaction.guild.id)
         if active is not None:
-            embed = error_embed(f"`{active['name']}` is already active for this server.")
+            embed = error_embed("A tournament is already active. Cancel it first with /cancel-tournament.")
             view = CancelCurrentTournamentView(interaction.user.id)
             await interaction.message.edit(embed=embed, view=view)
             view.message = interaction.message
@@ -131,7 +131,7 @@ class ConfirmTournamentView(OwnedView):
         try:
             tournament = await queries.create_tournament(**self.payload)
         except asyncpg.UniqueViolationError:
-            embed = error_embed("Another tournament is already active for this server.")
+            embed = error_embed("A tournament is already active. Cancel it first with /cancel-tournament.")
             view = CancelCurrentTournamentView(interaction.user.id)
             await interaction.message.edit(embed=embed, view=view)
             view.message = interaction.message
@@ -283,7 +283,7 @@ class SetupCog(commands.Cog):
         if active is not None:
             view = CancelCurrentTournamentView(ctx.author.id)
             message = await ctx.send(
-                embed=error_embed(f"`{active['name']}` is already active for this server."),
+                embed=error_embed("A tournament is already active. Cancel it first with /cancel-tournament."),
                 view=view,
             )
             view.message = message
