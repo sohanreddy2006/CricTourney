@@ -91,6 +91,8 @@ class RegistrationCog(commands.Cog):
     @commands.hybrid_command(name="register", description="Register for the active Cricket Guru tournament.")
     @app_commands.describe(username="Your tournament display name.", ovr="Your team/player OVR rating.")
     async def register(self, ctx: commands.Context, username: str, ovr: int) -> None:
+        await ctx.defer()
+
         if ctx.guild is None:
             await ctx.send(embed=error_embed("This command can only be used in a server."))
             return
@@ -158,6 +160,8 @@ class RegistrationCog(commands.Cog):
 
     @commands.hybrid_command(name="view-participants", description="View registered tournament participants.")
     async def view_participants(self, ctx: commands.Context) -> None:
+        await ctx.defer()
+
         if ctx.guild is None:
             await ctx.send(embed=error_embed("This command can only be used in a server."))
             return
@@ -187,6 +191,8 @@ class RegistrationCog(commands.Cog):
 
     @commands.hybrid_command(name="tournament-info", description="Show the current Cricket Guru tournament details.")
     async def tournament_info(self, ctx: commands.Context) -> None:
+        await ctx.defer()
+
         if ctx.guild is None:
             await ctx.send(embed=error_embed("This command can only be used in a server."))
             return
@@ -212,6 +218,8 @@ class RegistrationCog(commands.Cog):
 
     @commands.hybrid_command(name="my-match", description="Show your current tournament match.")
     async def my_match(self, ctx: commands.Context) -> None:
+        await ctx.defer()
+
         if ctx.guild is None:
             await ctx.send(embed=error_embed("This command can only be used in a server."))
             return

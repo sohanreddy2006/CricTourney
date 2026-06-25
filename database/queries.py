@@ -175,6 +175,32 @@ async def set_tournament_active(tournament_id: int) -> Record | None:
     return await update_tournament_status(tournament_id, "active")
 
 
+async def mark_tournament_matchups_generated(
+    tournament_id: int,
+    *,
+    total_rounds: int | None,
+    match_counter: int,
+    stage: str | None = None,
+) -> Record | None:
+    async with acquire() as connection:
+        return await connection.fetchrow(
+            """
+            UPDATE tournaments
+            SET status = 'active',
+                current_round = 1,
+                total_rounds = $2,
+                match_counter = $3,
+                stage = COALESCE($4, stage)
+            WHERE id = $1
+            RETURNING *
+            """,
+            tournament_id,
+            total_rounds,
+            match_counter,
+            stage,
+        )
+
+
 async def cancel_active_tournament(guild_id: int) -> Record | None:
     async with acquire() as connection:
         return await connection.fetchrow(

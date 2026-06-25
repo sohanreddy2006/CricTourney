@@ -1,0 +1,362 @@
+Cricket Guru Build Progress
+===========================
+
+Repository
+----------
+GitHub: https://github.com/sohanreddy2006/CricTourney
+Branch: codex/cricket-guru
+Local path: C:\SOHAN1\cricket_guru
+
+
+Completed Stages
+----------------
+
+Stage 1 - Project Scaffold and Database
+Commit: f27f4da Stage 1 scaffold database layer
+
+Built:
+- main.py
+  - Discord bot entrypoint.
+  - Uses discord.py commands.Bot.
+  - Prefix command support with "!" from .env.
+  - Slash command sync on ready.
+  - Automatically loads Python cogs from cogs/.
+  - Logs to console with timestamps.
+
+- config.py
+  - Loads .env using python-dotenv.
+  - Reads DISCORD_TOKEN, DATABASE_URL, PREFIX, LOG_LEVEL.
+
+- requirements.txt
+  - discord.py==2.7.1
+  - asyncpg==0.29.0
+  - Pillow==10.3.0
+  - python-dotenv==1.0.1
+  - aiohttp==3.9.5
+
+- .env.example
+  - Placeholder environment config only.
+  - No real secrets should be stored here.
+
+- database/connection.py
+  - asyncpg connection pool.
+  - init_db() creates all PostgreSQL tables and indexes using CREATE TABLE IF NOT EXISTS.
+
+- database/queries.py
+  - Query helper layer for guild config, tournaments, participants, rounds, matches, and standings.
+
+- utils/checks.py
+  - organizer_only() command check.
+  - Uses configured guild organizer role if set.
+  - Falls back to Discord role named Organizer.
+  - Administrators pass organizer checks.
+
+- utils/embeds.py
+  - Standard Cricket Guru embed helper.
+  - Brand color: dark blue #1a237e.
+
+- Empty package/folder setup:
+  - cogs/__init__.py
+  - utils/__init__.py
+  - database/__init__.py
+  - assets/.gitkeep
+
+
+Stage 2 - Setup Cog
+Commit: e0a19e1 Stage 2 add tournament setup wizard
+
+Built:
+- cogs/setup.py
+
+Commands:
+- /create-tournament
+- !create-tournament
+- /set-organizer-role
+- !set-organizer-role
+
+Implemented:
+- Organizer-only tournament creation.
+- Simplified slash command form:
+  - name
+  - format
+  - cap
+- Follow-up setup wizard in chat for:
+  - OVR minimum
+  - round robin advance count
+  - group usage
+  - group size
+  - group advance count
+  - registration channel
+  - matchups channel
+  - results channel
+  - bracket channel
+- Confirm/Cancel button view before inserting tournament.
+- Inserts tournament with status registration after confirmation.
+- Posts registration announcement embed in the registration channel.
+- Administrator-only organizer role setup.
+- Active tournament protection.
+
+Important adjustment:
+- The first version used too many inline slash arguments.
+- It was changed to a staged wizard because Discord's slash UI became too cramped.
+
+
+Stage 3 - Registration Cog
+Commit: 0e52256 Stage 3 add registration commands
+
+Built:
+- cogs/registration.py
+- Added database query helper:
+  - get_registration_tournament()
+
+Commands:
+- /register username:<str> ovr:<int>
+- !register <username> <ovr>
+- /view-participants
+- !view-participants
+- /tournament-info
+- !tournament-info
+- /my-match
+- !my-match
+
+Implemented:
+- Register only while tournament status is registration.
+- Reject duplicate player registration.
+- Reject OVR below minimum.
+- Reject registration when tournament is full.
+- Insert participant on success.
+- Success embed shows slot number.
+- When participant cap is reached:
+  - Posts registration closed embed in registration channel.
+  - Calls the future matchups generator if available.
+  - Until Stage 5 exists, it posts a pending-generator message.
+- View participants ordered by registered_at.
+- Participant list title shows X/Y registered.
+- Group assignment is shown if already assigned.
+- Tournament info embed includes:
+  - name
+  - format
+  - status
+  - OVR min
+  - cap
+  - registered count
+  - current round if active
+- My match lookup:
+  - Finds caller by discord_id.
+  - Looks up pending match.
+  - Shows opponent and round name if available.
+  - Otherwise says no active match.
+
+
+Stage 4 - Bracket Image Renderer
+Commit: 9c69e3b Stage 4 add bracket image renderer
+
+Built:
+- utils/bracket_renderer.py
+
+Functions:
+- render_bracket(matches: list[dict], round_name: str, tournament_name: str) -> bytes
+- render_standings(participants: list[dict], group_name: str | None) -> bytes
+
+Implemented:
+- Uses Pillow to render PNG bytes.
+- Dark navy background.
+- Dark rounded code-card style inspired by the reference images.
+- Monospace font fallback:
+  - assets/fonts/bold.ttf if present.
+  - Windows Consolas/Courier fallback if available.
+  - Pillow default as final fallback.
+- Bracket rendering supports:
+  - match_id
+  - player names
+  - OVR ratings
+  - pending matches
+  - completed matches
+  - bye matches
+  - winner highlight in green
+  - loser gray/struck out
+- Standings rendering supports:
+  - Rank
+  - Username
+  - OVR
+  - Wins
+  - Losses
+  - Points
+- Preview images were smoke-tested locally:
+  - C:\tmp\cricket_guru_bracket_test.png
+  - C:\tmp\cricket_guru_standings_test.png
+
+Also included in Stage 4:
+- Edge-case wording updates:
+  - Active tournament creation now says:
+    "A tournament is already active. Cancel it first with /cancel-tournament."
+  - OVR rejection now says:
+    "Your OVR (X) is below the minimum required (Y) for this tournament."
+
+
+Stage 5 - Matchups Cog
+Commit: Stage 5 add matchups cog
+
+Built:
+- cogs/matchups.py
+- Added database query helper:
+  - mark_tournament_matchups_generated()
+- Updated cogs/registration.py:
+  - Registration/info commands now defer immediately so Discord does not show
+    "Application did not respond" while Supabase is processing.
+
+Commands:
+- /generate-matchups
+- !generate-matchups
+
+Implemented:
+- Organizer-only matchup generation.
+- Shared generate_matchups_for_tournament() function.
+- Registration cap auto-trigger now calls the real matchup generator.
+- Validates at least 2 registered players.
+- Sets tournament status to active.
+- Sets current_round to 1.
+- Stores total_rounds.
+- Stores match_counter using the highest generated match ID.
+- Single elimination first-round generation:
+  - Random participant shuffle.
+  - Sequential match IDs.
+  - Odd participant count creates one bye.
+  - Bye match is stored with status bye and winner_id set.
+- Round robin first-round generation:
+  - Random participant shuffle.
+  - Round 1 gives each player at most one match.
+  - Total rounds are calculated for future advancement.
+- Group knockout first-round generation:
+  - Random group assignment when groups are enabled.
+  - Last group may have fewer participants.
+  - Round 1 creates intra-group matches only.
+  - Each player gets at most one group-stage match in the round.
+- Inserts rounds into rounds table.
+- Inserts matches into matches table.
+- Posts matchup embeds in the matchups channel.
+- Mentions registered Discord users in matchup posts.
+- Renders initial bracket/standings image.
+- Posts initial image in bracket channel.
+- Saves bracket_message_id for future editing.
+
+Manual test status:
+- /generate-matchups was tested in Discord and confirmed working.
+
+
+Current Design Decisions
+------------------------
+- Project is standalone, not part of any forum flow.
+- Local project path: C:\SOHAN1\cricket_guru
+- One active tournament per guild.
+- Organizer gate:
+  - Administrator users pass.
+  - Configured organizer role passes.
+  - If no role configured, role named Organizer passes.
+- Commands are hybrid where implemented, meaning slash and prefix versions work from the same command.
+- Real secrets belong only in .env.
+- .env is ignored by Git.
+- .env.example must contain placeholders only.
+- Round robin/group logic must generate rounds where a player has only one matchup at a time:
+  - Round 1: A vs B, C vs D
+  - Round 2: A vs C, B vs D
+  - Round 3: A vs D, B vs C
+
+
+Known Edge Cases To Handle
+--------------------------
+- Odd number of participants:
+  - One random player receives a bye.
+  - Bye match is marked as status bye.
+  - Player auto-advances.
+
+- Player registers twice:
+  - Reject with:
+    "You are already registered for this tournament."
+
+- OVR below minimum:
+  - Reject with:
+    "Your OVR (X) is below the minimum required (Y) for this tournament."
+
+- /post-result invalid match ID:
+  - "Match #X does not exist in this tournament."
+
+- /post-result winner mention is not in match:
+  - "❌ @User is not a participant in Match #X. Valid players: A, B."
+
+- /post-result winner mention is not registered:
+  - "❌ @User is not registered in this tournament."
+
+- /create-tournament when one is active:
+  - "A tournament is already active. Cancel it first with /cancel-tournament."
+
+- Groups not perfectly divisible:
+  - Last group has fewer members and is still valid.
+
+- /generate-matchups with fewer than 2 players:
+  - "Not enough players registered (minimum 2 required)."
+
+- rr_advance_count greater than registered player count:
+  - Cap silently to registered player count.
+
+- group_advance_count * groups is not a power of 2:
+  - Add byes to pad knockout bracket to next power of 2.
+
+- Round robin tied wins and tied OVR:
+  - Tiebreaker is registration order.
+  - Earliest registered player wins the tiebreaker.
+
+- All players in a group withdraw/bye:
+  - Group still completes.
+  - Advance whoever remains.
+
+
+Remaining Stages
+----------------
+
+Stage 6 - Results Cog
+Needed:
+- cogs/results.py
+- /post-result match_id:<int> winner:<@member> image:<optional attachment>
+- !post-result equivalent.
+- Winner must be resolved by Discord mention/member.
+- Validate active tournament.
+- Validate match ID exists.
+- Validate mentioned user is registered.
+- Validate mentioned user is one of the match participants.
+- Record result and result image URL.
+- Re-render bracket/standings image.
+- Edit tracked bracket message.
+- Post result confirmation embed.
+- Detect when a round is complete.
+- Auto-generate next round.
+- Final winner announcement.
+- Mark tournament completed.
+
+
+Stage 7 - Bracket and Admin Cogs
+Needed:
+- cogs/bracket.py
+- /show-bracket
+- !show-bracket
+- Repost current bracket/standings image without changing tracked bracket_message_id.
+
+- cogs/admin.py
+- /cancel-tournament
+- !cancel-tournament
+- Confirmation buttons.
+- /close-registrations
+- !close-registrations
+- Set status correctly without generating matchups.
+
+
+Stage 8 - Polish, Testing, and Docs
+Needed:
+- README.md
+- Manual setup instructions.
+- Supabase/PostgreSQL setup notes.
+- Discord bot invite and intents notes.
+- Command reference.
+- Manual test checklist.
+- Edge-case test checklist.
+- Final command sync/run verification.
